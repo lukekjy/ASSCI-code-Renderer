@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Renderer Studio</title>
+    <style>
+        :root {
+            --bg: #eef3f7;
+            --panel: rgba(255, 255, 255, 0.82);
+            --panel-strong: rgba(255, 255, 255, 0.94);
+            --line: rgba(38, 57, 77, 0.12);
+            --text: #122033;
+            --muted: #61748a;
+            --accent: #1d7df2;
+            --accent-soft: rgba(29, 125, 242, 0.14);
+            --green: #0f9d77;
+            --shadow: 0 24px 80px rgba(33, 53, 74, 0.14);
+            --radius-xl: 28px;
+            --radius-lg: 20px;
+            --radius-md: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            font-family: "SF Pro Display", "Apple SD Gothic Neo", "Noto Sans KR", -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(29, 125, 242, 0.12), transparent 28%),
+                radial-gradient(circle at 90% 10%, rgba(15, 157, 119, 0.12), transparent 22%),
+                linear-gradient(180deg, #f6f9fc 0%, #edf2f7 100%);
+            overflow: hidden;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.46) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.46) 1px, transparent 1px);
+            background-size: 28px 28px;
+            opacity: 0.3;
+        }
+
+        .shell {
+            width: min(1440px, calc(100% - 32px));
+            margin: 0 auto;
+            height: 100vh;
+            padding: 12px 0 12px;
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            gap: 12px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 12px 16px;
+            background: var(--panel);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(18px);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow);
+        }
+
+        .brand {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .eyebrow {
+            margin: 0;
+            font-size: 12px;
+            letter-spacing: 0.18em;
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(20px, 2.3vw, 32px);
+            line-height: 1.05;
+        }
+
+        .subtitle {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .pill {
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--line);
+            font-size: 12px;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .pill strong {
+            color: var(--text);
+            margin-left: 4px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 320px minmax(0, 1fr);
+            gap: 20px;
+            min-height: 0;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(18px);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow);
+        }
+
+        .controls {
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+            overflow: auto;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .section-title h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .section-title p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .upload-zone {
+            position: relative;
+            display: grid;
+            place-items: center;
+            min-height: 104px;
+            padding: 16px;
+            border-radius: var(--radius-lg);
+            border: 1.5px dashed rgba(29, 125, 242, 0.35);
+            background:
+                linear-gradient(135deg, rgba(29, 125, 242, 0.08), rgba(15, 157, 119, 0.08)),
+                rgba(255, 255, 255, 0.52);
+            text-align: center;
+            cursor: pointer;
+            transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            transform: translateY(-2px);
+            border-color: rgba(29, 125, 242, 0.62);
+            box-shadow: inset 0 0 0 1px rgba(29, 125, 242, 0.08);
+        }
+
+        .upload-zone input {
+            display: none;
+        }
+
+        .upload-title {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .upload-subtitle {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .control-card {
+            padding: 12px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.62);
+        }
+
+        .control-card label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .meta-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .meta-line span {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .value-badge {
+            min-width: 44px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            text-align: center;
+            color: var(--accent);
+            background: var(--accent-soft);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+        }
+
+        select,
+        button {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: var(--radius-md);
+            font: inherit;
+        }
+
+        select {
+            padding: 10px 12px;
+            background: white;
+            color: var(--text);
+        }
+
+        .toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .toggle strong {
+            display: block;
+            margin-bottom: 2px;
+            font-size: 13px;
+        }
+
+        .toggle span {
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .toggle input {
+            width: 46px;
+            height: 24px;
+            accent-color: var(--accent);
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            padding: 11px 12px;
+            background: white;
+            color: var(--text);
+            cursor: pointer;
+            transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+        }
+
+        button.primary {
+            color: white;
+            border-color: transparent;
+            background: linear-gradient(135deg, #1d7df2 0%, #0f9d77 100%);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px rgba(29, 125, 242, 0.14);
+            border-color: rgba(29, 125, 242, 0.2);
+        }
+
+        .viewer {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .viewer-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(38, 57, 77, 0.08);
+        }
+
+        .viewer-head h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .viewer-head p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .status-chip {
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(15, 157, 119, 0.1);
+            color: var(--green);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .viewer-body {
+            min-height: 0;
+            padding: 12px;
+            display: block;
+        }
+
+        .ascii-card {
+            min-height: 0;
+            height: 100%;
+            border-radius: 22px;
+            border: 1px solid rgba(38, 57, 77, 0.08);
+            background: var(--panel-strong);
+            overflow: hidden;
+        }
+
+        .card-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(38, 57, 77, 0.08);
+        }
+
+        .card-head strong {
+            font-size: 14px;
+        }
+
+        .card-head span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .ascii-card {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            min-width: 0;
+        }
+
+        #viewport {
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 12px;
+            background:
+                radial-gradient(circle at top left, rgba(29, 125, 242, 0.04), transparent 22%),
+                #ffffff;
+        }
+
+        #output {
+            white-space: pre;
+            font-family: "SFMono-Regular", "JetBrains Mono", "Courier New", monospace;
+            line-height: 1;
+            letter-spacing: 0;
+            transform-origin: center center;
+            color: black;
+            display: inline-block;
+            max-width: none;
+        }
+
+        .footer-note {
+            color: var(--muted);
+            font-size: 11px;
+            text-align: right;
+        }
+
+        @media (max-width: 1080px) {
+            body {
+                height: auto;
+                min-height: 100vh;
+                overflow: auto;
+            }
+
+            .shell {
+                height: auto;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .viewer {
+                min-height: 70vh;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .stats {
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .shell {
+                width: min(100% - 18px, 100%);
+                padding-top: 10px;
+            }
+
+            .topbar,
+            .controls,
+            .viewer-head,
+            .viewer-body {
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+
+            .actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <header class="topbar">
+            <div class="brand">
+                <p class="eyebrow">ASCII RENDER STUDIO</p>
+                <h1>이미지를 문자로 다시 그리기</h1>
+                <p class="subtitle">업로드한 사진을 흑백 또는 컬러 ASCII 아트로 렌더링합니다.</p>
+            </div>
+            <div class="stats">
+                <div class="pill">모드<strong id="mode-pill">흑백</strong></div>
+                <div class="pill">해상도<strong id="res-pill">300</strong></div>
+                <div class="pill">출력<strong id="size-pill">대기 중</strong></div>
+            </div>
+        </header>
+
+        <main class="layout">
+            <aside class="panel controls">
+                <div class="section-title">
+                    <div>
+                        <h2>컨트롤</h2>
+                        <p>스타일은 더 좋아지고, 사용법은 더 단순하게.</p>
+                    </div>
+                </div>
+
+                <label class="upload-zone" id="upload-zone" for="upload">
+                    <input type="file" id="upload" accept="image/*">
+                    <div>
+                        <span class="upload-title">이미지 업로드 또는 드롭</span>
+                        <span class="upload-subtitle">PNG, JPG, WEBP를 바로 렌더링할 수 있습니다. 큰 사진도 자동으로 리샘플링합니다.</span>
+                    </div>
+                </label>
+
+                <div class="control-card">
+                    <div class="meta-line">
+                        <span>해상도</span>
+                        <span class="value-badge" id="res-display">300</span>
+                    </div>
+                    <label for="resolution">ASCII 출력 너비를 조절합니다.</label>
+                    <input type="range" id="resolution" min="50" max="1000" value="300">
+                </div>
+
+                <div class="control-card">
+                    <label for="color-mode">색상 모드</label>
+                    <select id="color-mode">
+                        <option value="grayscale" selected>흑백</option>
+                        <option value="color">컬러</option>
+                    </select>
+                </div>
+
+                <div class="control-card">
+                    <label for="charset">문자 세트</label>
+                    <select id="charset">
+                        <option value="$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ">디테일 높음</option>
+                        <option value="@%#*+=-:. ">클래식</option>
+                        <option value="MWNXK0Okxdolc:;.. ">소프트</option>
+                        <option value="█▓▒░ ">블록</option>
+                    </select>
+                </div>
+
+                <div class="control-card toggle">
+                    <div>
+                        <strong>화면에 맞춤</strong>
+                        <span>렌더 결과를 뷰포트 안에 자동으로 맞춥니다.</span>
+                    </div>
+                    <input type="checkbox" id="auto-fit" checked>
+                </div>
+
+                <div class="control-card toggle">
+                    <div>
+                        <strong>반전</strong>
+                        <span>밝고 어두운 문자 매핑을 뒤집습니다.</span>
+                    </div>
+                    <input type="checkbox" id="invert">
+                </div>
+
+                <div class="actions">
+                    <button class="primary" id="copy-btn" type="button">ASCII 복사</button>
+                    <button id="download-btn" type="button">TXT 저장</button>
+                </div>
+            </aside>
+
+            <section class="panel viewer">
+                <div class="viewer-head">
+                    <div>
+                        <h2>렌더 결과</h2>
+                        <p id="status-text">이미지를 넣으면 여기서 ASCII 아트를 생성합니다.</p>
+                    </div>
+                    <div class="status-chip" id="status-chip">Ready</div>
+                </div>
+
+                <div class="viewer-body">
+                    <section class="ascii-card">
+                        <div class="card-head">
+                            <strong>ASCII 캔버스</strong>
+                            <span id="render-meta">아직 렌더링되지 않음</span>
+                        </div>
+                        <div id="viewport">
+                            <div id="output">이미지를 업로드하세요</div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+        </main>
+
+        <div class="footer-note">컬러 모드는 span 기반 렌더링이라 해상도가 높을수록 시간이 더 걸릴 수 있습니다.</div>
+    </div>
+
+    <canvas id="canvas" hidden></canvas>
+
+    <script>
+        const upload = document.getElementById("upload");
+        const uploadZone = document.getElementById("upload-zone");
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        const output = document.getElementById("output");
+        const viewport = document.getElementById("viewport");
+        const resolutionInput = document.getElementById("resolution");
+        const resDisplay = document.getElementById("res-display");
+        const resPill = document.getElementById("res-pill");
+        const sizePill = document.getElementById("size-pill");
+        const autoFitCheck = document.getElementById("auto-fit");
+        const colorModeSelect = document.getElementById("color-mode");
+        const charsetSelect = document.getElementById("charset");
+        const invertCheck = document.getElementById("invert");
+        const statusText = document.getElementById("status-text");
+        const statusChip = document.getElementById("status-chip");
+        const copyBtn = document.getElementById("copy-btn");
+        const downloadBtn = document.getElementById("download-btn");
+        const modePill = document.getElementById("mode-pill");
+        const renderMeta = document.getElementById("render-meta");
+
+        const state = {
+            file: null,
+            image: null,
+            asciiText: "",
+            renderedWidth: 0,
+            renderedHeight: 0
+        };
+
+        const aspectRatioCorrection = 0.55;
+
+        function updateControlBadges() {
+            resDisplay.textContent = resolutionInput.value;
+            resPill.textContent = resolutionInput.value;
+            modePill.textContent = colorModeSelect.value === "color" ? "컬러" : "흑백";
+        }
+
+        function setStatus(message, chipText, active = false) {
+            statusText.textContent = message;
+            statusChip.textContent = chipText;
+            statusChip.style.background = active ? "rgba(15, 157, 119, 0.1)" : "rgba(29, 125, 242, 0.1)";
+            statusChip.style.color = active ? "var(--green)" : "var(--accent)";
+        }
+
+        function updateScale() {
+            if (!autoFitCheck.checked) {
+                output.style.transform = "scale(1)";
+                viewport.style.overflow = "auto";
+                return;
+            }
+
+            viewport.style.overflow = "hidden";
+            const vWidth = viewport.clientWidth - 32;
+            const vHeight = viewport.clientHeight - 32;
+            const oWidth = output.offsetWidth || 1;
+            const oHeight = output.offsetHeight || 1;
+            const scale = Math.min(vWidth / oWidth, vHeight / oHeight, 1);
+            output.style.transform = `scale(${scale})`;
+        }
+
+        function mapChar(brightness, charMap, inverted) {
+            const source = inverted ? [...charMap].reverse().join("") : charMap;
+            const index = Math.floor((brightness / 255) * (source.length - 1));
+            return source[index] || " ";
+        }
+
+        function escapeHtml(value) {
+            return value
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;");
+        }
+
+        function buildAscii(pixels, width, height, charMap, isColor, inverted) {
+            let asciiText = "";
+            const htmlRows = [];
+
+            for (let y = 0; y < height; y += 1) {
+                let rowText = "";
+                let rowHtml = "";
+
+                for (let x = 0; x < width; x += 1) {
+                    const i = (y * width + x) * 4;
+                    const r = pixels[i];
+                    const g = pixels[i + 1];
+                    const b = pixels[i + 2];
+                    const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+                    const char = mapChar(brightness, charMap, inverted);
+                    rowText += char;
+
+                    if (isColor) {
+                        rowHtml += `<span style="color:rgb(${r},${g},${b})">${escapeHtml(char)}</span>`;
+                    }
+                }
+
+                asciiText += `${rowText}\n`;
+                if (isColor) {
+                    htmlRows.push(rowHtml);
+                }
+            }
+
+            return {
+                asciiText,
+                asciiHtml: isColor ? htmlRows.join("\n") : ""
+            };
+        }
+
+        function applyRenderedOutput(result, isColor) {
+            state.asciiText = result.asciiText.trimEnd();
+
+            if (isColor) {
+                output.innerHTML = result.asciiHtml;
+                output.style.color = "inherit";
+            } else {
+                output.textContent = state.asciiText || " ";
+                output.style.color = "#111";
+            }
+
+            sizePill.textContent = `${state.renderedWidth} x ${state.renderedHeight}`;
+            renderMeta.textContent = `${state.renderedWidth}열, ${state.renderedHeight}행`;
+            setTimeout(updateScale, 20);
+        }
+
+        function renderCurrentFile() {
+            if (!state.image) {
+                return;
+            }
+
+            let resolution = Number.parseInt(resolutionInput.value, 10);
+            const isColor = colorModeSelect.value === "color";
+            const charMap = charsetSelect.value;
+            const inverted = invertCheck.checked;
+
+            if (isColor && resolution > 500) {
+                resolution = 500;
+                resolutionInput.value = "500";
+                updateControlBadges();
+                setStatus("컬러 모드에서는 성능을 위해 최대 해상도를 500으로 제한했습니다.", "Adjusted", true);
+            } else {
+                setStatus("ASCII 아트를 렌더링하고 있습니다.", "Rendering", true);
+            }
+
+            const width = resolution;
+            const height = Math.max(1, Math.round((state.image.height / state.image.width) * resolution * aspectRatioCorrection));
+
+            canvas.width = width;
+            canvas.height = height;
+            output.style.fontSize = "10px";
+            output.style.lineHeight = "10px";
+
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(state.image, 0, 0, width, height);
+            const pixels = ctx.getImageData(0, 0, width, height).data;
+
+            state.renderedWidth = width;
+            state.renderedHeight = height;
+
+            if (isColor && width * height > 160000) {
+                requestAnimationFrame(() => {
+                    const result = buildAscii(pixels, width, height, charMap, true, inverted);
+                    applyRenderedOutput(result, true);
+                    setStatus("컬러 ASCII 렌더링이 완료되었습니다.", "Complete", true);
+                });
+                return;
+            }
+
+            const result = buildAscii(pixels, width, height, charMap, isColor, inverted);
+            applyRenderedOutput(result, isColor);
+            setStatus(`${isColor ? "컬러" : "흑백"} ASCII 렌더링이 완료되었습니다.`, "Complete", true);
+        }
+
+        function loadFile(file) {
+            if (!file) {
+                return;
+            }
+
+            state.file = file;
+            const reader = new FileReader();
+
+            setStatus("이미지를 불러오는 중입니다.", "Loading");
+
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.image = img;
+                    renderCurrentFile();
+                };
+                img.src = event.target.result;
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        async function copyAscii() {
+            if (!state.asciiText) {
+                setStatus("복사할 ASCII 아트가 아직 없습니다.", "Empty");
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(state.asciiText);
+                setStatus("ASCII 아트를 클립보드에 복사했습니다.", "Copied", true);
+            } catch (error) {
+                setStatus("클립보드 복사에 실패했습니다. 브라우저 권한을 확인해 주세요.", "Failed");
+            }
+        }
+
+        function downloadAscii() {
+            if (!state.asciiText) {
+                setStatus("저장할 ASCII 아트가 아직 없습니다.", "Empty");
+                return;
+            }
+
+            const blob = new Blob([state.asciiText], { type: "text/plain;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "ascii-render.txt";
+            link.click();
+            URL.revokeObjectURL(link.href);
+            setStatus("ASCII 텍스트 파일을 저장했습니다.", "Saved", true);
+        }
+
+        upload.addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            loadFile(file);
+        });
+
+        uploadZone.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            uploadZone.classList.add("dragover");
+        });
+
+        uploadZone.addEventListener("dragleave", () => {
+            uploadZone.classList.remove("dragover");
+        });
+
+        uploadZone.addEventListener("drop", (event) => {
+            event.preventDefault();
+            uploadZone.classList.remove("dragover");
+            const file = event.dataTransfer.files[0];
+            if (file) {
+                upload.files = event.dataTransfer.files;
+                loadFile(file);
+            }
+        });
+
+        resolutionInput.addEventListener("input", updateControlBadges);
+        resolutionInput.addEventListener("change", renderCurrentFile);
+        colorModeSelect.addEventListener("change", () => {
+            resolutionInput.max = colorModeSelect.value === "color" ? "500" : "1000";
+            updateControlBadges();
+            renderCurrentFile();
+        });
+        charsetSelect.addEventListener("change", renderCurrentFile);
+        invertCheck.addEventListener("change", renderCurrentFile);
+        autoFitCheck.addEventListener("change", updateScale);
+        window.addEventListener("resize", updateScale);
+        copyBtn.addEventListener("click", copyAscii);
+        downloadBtn.addEventListener("click", downloadAscii);
+
+        updateControlBadges();
+    </script>
+</body>
+</html>
